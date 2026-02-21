@@ -60,6 +60,7 @@ mod sandbox_tags;
 pub mod sandboxing;
 mod session_prefix;
 mod shell_detect;
+mod startup_agents_discovery;
 mod stream_events_utils;
 mod tagged_block_parser;
 pub mod test_support;

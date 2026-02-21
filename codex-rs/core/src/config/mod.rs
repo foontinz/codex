@@ -322,6 +322,11 @@ pub struct Config {
     /// Additional filenames to try when looking for project-level docs.
     pub project_doc_fallback_filenames: Vec<String>,
 
+    /// Optional model used for startup AGENTS discovery summaries.
+    ///
+    /// When unset, Codex uses a built-in default mini model.
+    pub startup_agents_summary_model: Option<String>,
+
     /// Token budget applied when storing tool/function outputs in the context manager.
     pub tool_output_token_limit: Option<usize>,
 
@@ -1067,6 +1072,9 @@ pub struct ConfigToml {
 
     /// Ordered list of fallback filenames to look for when AGENTS.md is missing.
     pub project_doc_fallback_filenames: Option<Vec<String>>,
+
+    /// Optional model used for startup AGENTS discovery summaries.
+    pub startup_agents_summary_model: Option<String>,
 
     /// Token budget applied when storing tool/function outputs in the context manager.
     pub tool_output_token_limit: Option<usize>,
@@ -2030,6 +2038,14 @@ impl Config {
                     }
                 })
                 .collect(),
+            startup_agents_summary_model: cfg.startup_agents_summary_model.and_then(|model| {
+                let trimmed = model.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            }),
             tool_output_token_limit: cfg.tool_output_token_limit,
             agent_max_threads,
             agent_max_depth,
@@ -4586,6 +4602,7 @@ model_verbosity = "high"
                 model_providers: fixture.model_provider_map.clone(),
                 project_doc_max_bytes: PROJECT_DOC_MAX_BYTES,
                 project_doc_fallback_filenames: Vec::new(),
+                startup_agents_summary_model: None,
                 tool_output_token_limit: None,
                 agent_max_threads: DEFAULT_AGENT_MAX_THREADS,
                 agent_max_depth: DEFAULT_AGENT_MAX_DEPTH,
@@ -4708,6 +4725,7 @@ model_verbosity = "high"
             model_providers: fixture.model_provider_map.clone(),
             project_doc_max_bytes: PROJECT_DOC_MAX_BYTES,
             project_doc_fallback_filenames: Vec::new(),
+            startup_agents_summary_model: None,
             tool_output_token_limit: None,
             agent_max_threads: DEFAULT_AGENT_MAX_THREADS,
             agent_max_depth: DEFAULT_AGENT_MAX_DEPTH,
@@ -4828,6 +4846,7 @@ model_verbosity = "high"
             model_providers: fixture.model_provider_map.clone(),
             project_doc_max_bytes: PROJECT_DOC_MAX_BYTES,
             project_doc_fallback_filenames: Vec::new(),
+            startup_agents_summary_model: None,
             tool_output_token_limit: None,
             agent_max_threads: DEFAULT_AGENT_MAX_THREADS,
             agent_max_depth: DEFAULT_AGENT_MAX_DEPTH,
@@ -4934,6 +4953,7 @@ model_verbosity = "high"
             model_providers: fixture.model_provider_map.clone(),
             project_doc_max_bytes: PROJECT_DOC_MAX_BYTES,
             project_doc_fallback_filenames: Vec::new(),
+            startup_agents_summary_model: None,
             tool_output_token_limit: None,
             agent_max_threads: DEFAULT_AGENT_MAX_THREADS,
             agent_max_depth: DEFAULT_AGENT_MAX_DEPTH,
