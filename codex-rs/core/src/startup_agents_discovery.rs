@@ -39,10 +39,13 @@ For each file path in the input:
 Rules:
 - include every input path exactly once
 - do not invent paths
+- keep `why` and `when` to 160 characters each
 - keep text concise and actionable"#;
 
 const SUMMARY_TARGET_AGENTS: &str = "AGENTS.md";
 const SUMMARY_TARGET_OVERRIDE: &str = "AGENTS.override.md";
+const MAX_SUMMARY_WHY_CHARS: usize = 160;
+const MAX_SUMMARY_WHEN_CHARS: usize = 160;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct TreeEntry {
@@ -112,6 +115,7 @@ struct SummaryTargetCandidate {
     priority: u8,
     relative_path: PathBuf,
     absolute_path: PathBuf,
+    kind: TreeEntryKind,
 }
 
 pub(crate) async fn build_startup_agents_discovery_section(
@@ -172,7 +176,7 @@ pub(crate) fn prepend_discovery_section(
 }
 
 fn discover_tree(cwd: &Path) -> Result<DiscoveryTree> {
-    let mut entries = Vec::new();
+    let mut directory_entries = Vec::new();
     let mut summary_targets_by_dir: BTreeMap<PathBuf, SummaryTargetCandidate> = BTreeMap::new();
     let canonical_cwd = cwd.canonicalize().with_context(|| {
         format!(
@@ -214,11 +218,13 @@ fn discover_tree(cwd: &Path) -> Result<DiscoveryTree> {
             .map(TreeEntryKind::from)
             .unwrap_or(TreeEntryKind::Other);
 
-        entries.push(TreeEntry {
-            relative_path: relative_path.clone(),
-            depth: relative_path.components().count().saturating_sub(1),
-            kind,
-        });
+        if kind == TreeEntryKind::Directory {
+            directory_entries.push(TreeEntry {
+                relative_path: relative_path.clone(),
+                depth: relative_path.components().count().saturating_sub(1),
+                kind,
+            });
+        }
 
         if kind != TreeEntryKind::File && kind != TreeEntryKind::Symlink {
             continue;
@@ -258,15 +264,34 @@ fn discover_tree(cwd: &Path) -> Result<DiscoveryTree> {
                     priority,
                     relative_path,
                     absolute_path: canonical_candidate_path,
+                    kind,
                 },
             );
         }
     }
 
+    let mut summary_target_candidates = summary_targets_by_dir
+        .into_values()
+        .collect::<Vec<SummaryTargetCandidate>>();
+    summary_target_candidates
+        .sort_unstable_by(|left, right| left.relative_path.cmp(&right.relative_path));
+
+    let mut entries = directory_entries;
+    entries.extend(summary_target_candidates.iter().map(|candidate| {
+        TreeEntry {
+            relative_path: candidate.relative_path.clone(),
+            depth: candidate
+                .relative_path
+                .components()
+                .count()
+                .saturating_sub(1),
+            kind: candidate.kind,
+        }
+    }));
     entries.sort_unstable_by(|left, right| left.relative_path.cmp(&right.relative_path));
 
-    let mut summary_targets: Vec<SummaryTarget> = summary_targets_by_dir
-        .into_values()
+    let mut summary_targets: Vec<SummaryTarget> = summary_target_candidates
+        .iter()
         .map(|candidate| {
             let data = std::fs::read(&candidate.absolute_path).with_context(|| {
                 format!(
@@ -442,8 +467,8 @@ fn summary_output_schema() -> Value {
                     "type": "object",
                     "properties": {
                         "path": { "type": "string" },
-                        "why": { "type": "string" },
-                        "when": { "type": "string" }
+                        "why": { "type": "string", "maxLength": MAX_SUMMARY_WHY_CHARS },
+                        "when": { "type": "string", "maxLength": MAX_SUMMARY_WHEN_CHARS }
                     },
                     "required": ["path", "why", "when"],
                     "additionalProperties": false
@@ -463,8 +488,14 @@ fn validate_summaries(
 
     for item in parsed.summaries {
         let path = item.path.trim().to_string();
-        let why = item.why.trim().to_string();
-        let when = item.when.trim().to_string();
+        let mut why = item.why.trim().to_string();
+        if why.chars().count() > MAX_SUMMARY_WHY_CHARS {
+            why = why.chars().take(MAX_SUMMARY_WHY_CHARS).collect();
+        }
+        let mut when = item.when.trim().to_string();
+        if when.chars().count() > MAX_SUMMARY_WHEN_CHARS {
+            when = when.chars().take(MAX_SUMMARY_WHEN_CHARS).collect();
+        }
 
         if path.is_empty() {
             anyhow::bail!("startup agents summary returned an empty path");
@@ -565,6 +596,7 @@ mod tests {
     use super::prepend_discovery_section;
     use super::render_discovery_section;
     use super::select_startup_agents_summary_model;
+    use super::summary_output_schema;
     use super::validate_summaries;
 
     #[test]
@@ -683,11 +715,6 @@ mod tests {
                 depth: 1,
                 kind: TreeEntryKind::File,
             },
-            TreeEntry {
-                relative_path: "folder/file.txt".into(),
-                depth: 1,
-                kind: TreeEntryKind::File,
-            },
         ];
 
         let mut summaries = BTreeMap::new();
@@ -711,7 +738,25 @@ mod tests {
             lines[agents_index + 2],
             "      when: before editing files under folder"
         );
-        assert_eq!(lines[agents_index + 3], "    file.txt");
+    }
+
+    #[test]
+    fn discover_tree_entries_include_only_dirs_and_agents_targets() -> anyhow::Result<()> {
+        let temp = TempDir::new()?;
+        let service_dir = temp.path().join("service");
+        fs::create_dir_all(&service_dir)?;
+        fs::write(service_dir.join("file.txt"), "ignore me")?;
+        fs::write(service_dir.join("AGENTS.md"), "service rules")?;
+
+        let tree = discover_tree(temp.path())?;
+        let entries = tree
+            .entries
+            .iter()
+            .map(|entry| super::relative_path_text(&entry.relative_path))
+            .collect::<Vec<_>>();
+
+        assert_eq!(entries, vec!["service", "service/AGENTS.md"]);
+        Ok(())
     }
 
     #[test]
@@ -734,6 +779,39 @@ mod tests {
             error
                 .to_string()
                 .contains("paths do not match discovered AGENTS files")
+        );
+    }
+
+    #[test]
+    fn validate_summaries_caps_why_and_when_lengths() {
+        let expected_paths = ["a/AGENTS.md".to_string()].into_iter().collect();
+        let parsed = AgentsSummariesResponse {
+            summaries: vec![AgentsSummaryItem {
+                path: "a/AGENTS.md".to_string(),
+                why: "w".repeat(super::MAX_SUMMARY_WHY_CHARS + 25),
+                when: "x".repeat(super::MAX_SUMMARY_WHEN_CHARS + 25),
+            }],
+        };
+
+        let summaries = validate_summaries(parsed, expected_paths).expect("summary should parse");
+        let item = summaries
+            .get("a/AGENTS.md")
+            .expect("summary should exist for expected path");
+
+        assert_eq!(item.why.chars().count(), super::MAX_SUMMARY_WHY_CHARS);
+        assert_eq!(item.when.chars().count(), super::MAX_SUMMARY_WHEN_CHARS);
+    }
+
+    #[test]
+    fn summary_output_schema_sets_max_lengths_for_why_and_when() {
+        let schema = summary_output_schema();
+        assert_eq!(
+            schema["properties"]["summaries"]["items"]["properties"]["why"]["maxLength"],
+            serde_json::json!(super::MAX_SUMMARY_WHY_CHARS)
+        );
+        assert_eq!(
+            schema["properties"]["summaries"]["items"]["properties"]["when"]["maxLength"],
+            serde_json::json!(super::MAX_SUMMARY_WHEN_CHARS)
         );
     }
 
