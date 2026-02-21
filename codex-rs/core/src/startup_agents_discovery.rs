@@ -19,6 +19,7 @@ use tracing::debug;
 use tracing::info;
 use tracing::warn;
 
+use crate::agents_md;
 use crate::client::ModelClient;
 use crate::client_common::Prompt;
 use crate::client_common::ResponseEvent;
@@ -42,8 +43,6 @@ Rules:
 - keep `why` and `when` to 160 characters each
 - keep text concise and actionable"#;
 
-const SUMMARY_TARGET_AGENTS: &str = "AGENTS.md";
-const SUMMARY_TARGET_OVERRIDE: &str = "AGENTS.override.md";
 const MAX_SUMMARY_WHY_CHARS: usize = 160;
 const MAX_SUMMARY_WHEN_CHARS: usize = 160;
 
@@ -234,7 +233,7 @@ fn discover_tree(cwd: &Path) -> Result<DiscoveryTree> {
             continue;
         };
 
-        let Some(priority) = summary_priority(file_name) else {
+        let Some(priority) = agents_md::filename_priority(file_name) else {
             continue;
         };
 
@@ -313,14 +312,6 @@ fn discover_tree(cwd: &Path) -> Result<DiscoveryTree> {
         entries,
         summary_targets,
     })
-}
-
-fn summary_priority(file_name: &str) -> Option<u8> {
-    match file_name {
-        SUMMARY_TARGET_OVERRIDE => Some(0),
-        SUMMARY_TARGET_AGENTS => Some(1),
-        _ => None,
-    }
 }
 
 async fn summarize_targets(

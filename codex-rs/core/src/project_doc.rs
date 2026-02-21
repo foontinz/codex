@@ -26,9 +26,9 @@ pub(crate) const HIERARCHICAL_AGENTS_MESSAGE: &str =
     include_str!("../hierarchical_agents_message.md");
 
 /// Default filename scanned for project-level docs.
-pub const DEFAULT_PROJECT_DOC_FILENAME: &str = "AGENTS.md";
+pub const DEFAULT_PROJECT_DOC_FILENAME: &str = crate::agents_md::DEFAULT_PROJECT_DOC_FILENAME;
 /// Preferred local override for project-level docs.
-pub const LOCAL_PROJECT_DOC_FILENAME: &str = "AGENTS.override.md";
+pub const LOCAL_PROJECT_DOC_FILENAME: &str = crate::agents_md::LOCAL_PROJECT_DOC_FILENAME;
 
 /// When both `Config::instructions` and the project doc are present, they will
 /// be concatenated with the following separator.
@@ -250,20 +250,7 @@ pub fn discover_project_doc_paths(config: &Config) -> std::io::Result<Vec<PathBu
 }
 
 fn candidate_filenames<'a>(config: &'a Config) -> Vec<&'a str> {
-    let mut names: Vec<&'a str> =
-        Vec::with_capacity(2 + config.project_doc_fallback_filenames.len());
-    names.push(LOCAL_PROJECT_DOC_FILENAME);
-    names.push(DEFAULT_PROJECT_DOC_FILENAME);
-    for candidate in &config.project_doc_fallback_filenames {
-        let candidate = candidate.as_str();
-        if candidate.is_empty() {
-            continue;
-        }
-        if !names.contains(&candidate) {
-            names.push(candidate);
-        }
-    }
-    names
+    crate::agents_md::candidate_filenames(&config.project_doc_fallback_filenames)
 }
 
 #[cfg(test)]
