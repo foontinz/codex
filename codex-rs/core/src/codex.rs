@@ -1443,7 +1443,6 @@ impl Session {
                 }
             };
         session_configuration.thread_name = thread_name.clone();
-        let state = SessionState::new(session_configuration.clone());
         let managed_network_requirements_enabled = config.managed_network_requirements_enabled();
         let network_approval = Arc::new(NetworkApprovalService::default());
         // The managed proxy can call back into core for allowlist-miss decisions.
@@ -1490,6 +1489,45 @@ impl Session {
                 (None, None)
             };
 
+        let zsh_exec_bridge =
+            ZshExecBridge::new(config.zsh_path.clone(), config.codex_home.clone());
+        zsh_exec_bridge
+            .initialize_for_session(&conversation_id.to_string())
+            .await;
+        let model_client = ModelClient::new(
+            Some(Arc::clone(&auth_manager)),
+            conversation_id,
+            session_configuration.provider.clone(),
+            session_configuration.session_source.clone(),
+            config.model_verbosity,
+            ws_version_from_features(config.as_ref()),
+            config.features.enabled(Feature::EnableRequestCompression),
+            config.features.enabled(Feature::RuntimeMetrics),
+            Self::build_model_client_beta_features_header(config.as_ref()),
+        );
+
+        if config
+            .features
+            .enabled(Feature::StartupAgentsDiscoverySummary)
+        {
+            let discovery_section =
+                crate::startup_agents_discovery::build_startup_agents_discovery_section(
+                    &config,
+                    &model_client,
+                    models_manager.as_ref(),
+                    &otel_manager,
+                )
+                .await
+                .map_err(|err| {
+                    warn!("failed startup AGENTS discovery summary: {err:#}");
+                    anyhow::anyhow!("failed startup AGENTS discovery summary: {err}")
+                })?;
+            session_configuration.user_instructions =
+                crate::startup_agents_discovery::prepend_discovery_section(
+                    session_configuration.user_instructions.take(),
+                    discovery_section,
+                );
+        }
         let services = SessionServices {
             // Initialize the MCP connection manager with an uninitialized
             // instance. It will be replaced with one created via
@@ -1532,22 +1570,13 @@ impl Session {
             network_proxy,
             network_approval: Arc::clone(&network_approval),
             state_db: state_db_ctx.clone(),
-            model_client: ModelClient::new(
-                Some(Arc::clone(&auth_manager)),
-                conversation_id,
-                session_configuration.provider.clone(),
-                session_configuration.session_source.clone(),
-                config.model_verbosity,
-                ws_version_from_features(config.as_ref()),
-                config.features.enabled(Feature::EnableRequestCompression),
-                config.features.enabled(Feature::RuntimeMetrics),
-                Self::build_model_client_beta_features_header(config.as_ref()),
-            ),
+            model_client: model_client.clone(),
         };
         let js_repl = Arc::new(JsReplHandle::with_node_path(
             config.js_repl_node_path.clone(),
             config.js_repl_node_module_dirs.clone(),
         ));
+        let mut state = SessionState::new(session_configuration.clone());
 
         let sess = Arc::new(Session {
             conversation_id,

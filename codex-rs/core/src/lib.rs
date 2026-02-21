@@ -62,6 +62,7 @@ mod sandbox_tags;
 pub mod sandboxing;
 mod session_prefix;
 mod shell_detect;
+mod startup_agents_discovery;
 mod stream_events_utils;
 pub mod test_support;
 mod text_encoding;

@@ -117,6 +117,8 @@ pub enum Feature {
     Sqlite,
     /// Enable startup memory extraction and file-backed memory consolidation.
     MemoryTool,
+    /// Build a gitignore-aware startup file tree and summarize AGENTS read triggers.
+    StartupAgentsDiscoverySummary,
     /// Append additional AGENTS.md guidance to user instructions.
     ChildAgentsMd,
     /// Allow `detail: "original"` image outputs on supported models.
@@ -543,6 +545,12 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::MemoryTool,
         key: "memories",
+        stage: Stage::UnderDevelopment,
+        default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::StartupAgentsDiscoverySummary,
+        key: "startup_agents_summary",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
     },

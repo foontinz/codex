@@ -119,6 +119,7 @@ mod shell_snapshot;
 mod skill_approval;
 mod skills;
 mod sqlite_state;
+mod startup_agents_discovery_summary;
 mod stream_error_allows_next_turn;
 mod stream_no_completed;
 mod subagent_notifications;

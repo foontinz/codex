@@ -440,6 +440,9 @@
             "sqlite": {
               "type": "boolean"
             },
+            "startup_agents_summary": {
+              "type": "boolean"
+            },
             "steer": {
               "type": "boolean"
             },
@@ -1831,6 +1834,9 @@
         "sqlite": {
           "type": "boolean"
         },
+        "startup_agents_summary": {
+          "type": "boolean"
+        },
         "steer": {
           "type": "boolean"
         },
@@ -2189,6 +2195,10 @@
         }
       ],
       "description": "Directory where Codex stores the SQLite state DB. Defaults to `$CODEX_SQLITE_HOME` when set. Otherwise uses `$CODEX_HOME`."
+    },
+    "startup_agents_summary_model": {
+      "description": "Optional model used for startup AGENTS discovery summaries.",
+      "type": "string"
     },
     "suppress_unstable_features_warning": {
       "description": "Suppress warnings about unstable (under development) features.",
