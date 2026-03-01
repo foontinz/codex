@@ -1510,23 +1510,25 @@ impl Session {
             .features
             .enabled(Feature::StartupAgentsDiscoverySummary)
         {
-            let discovery_section =
-                crate::startup_agents_discovery::build_startup_agents_discovery_section(
-                    &config,
-                    &model_client,
-                    models_manager.as_ref(),
-                    &otel_manager,
-                )
-                .await
-                .map_err(|err| {
-                    warn!("failed startup AGENTS discovery summary: {err:#}");
-                    anyhow::anyhow!("failed startup AGENTS discovery summary: {err}")
-                })?;
-            session_configuration.user_instructions =
-                crate::startup_agents_discovery::prepend_discovery_section(
-                    session_configuration.user_instructions.take(),
-                    discovery_section,
-                );
+            match crate::startup_agents_discovery::build_startup_agents_discovery_section(
+                &config,
+                &model_client,
+                models_manager.as_ref(),
+                &otel_manager,
+            )
+            .await
+            {
+                Ok(discovery_section) => {
+                    session_configuration.user_instructions =
+                        crate::startup_agents_discovery::prepend_discovery_section(
+                            session_configuration.user_instructions.take(),
+                            discovery_section,
+                        );
+                }
+                Err(err) => {
+                    warn!("failed startup AGENTS discovery summary: {err:#}; continuing without AGENTS discovery");
+                }
+            }
         }
         let services = SessionServices {
             // Initialize the MCP connection manager with an uninitialized

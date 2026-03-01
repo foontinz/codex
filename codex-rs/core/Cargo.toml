@@ -68,7 +68,6 @@ iana-time-zone = { workspace = true }
 image = { workspace = true, features = ["jpeg", "png", "webp"] }
 indexmap = { workspace = true }
 ignore = { workspace = true }
-indoc = { workspace = true }
 keyring = { workspace = true, features = ["crypto-rust"] }
 libc = { workspace = true }
 notify = { workspace = true }
