@@ -27,7 +27,7 @@ use crate::config::Config;
 use crate::models_manager::manager::ModelsManager;
 use crate::models_manager::manager::RefreshStrategy;
 
-pub(crate) const DEFAULT_STARTUP_AGENTS_SUMMARY_MODEL: &str = "gpt-5.1-codex-mini";
+pub(crate) const DEFAULT_STARTUP_AGENTS_SUMMARY_MODEL: &str = "gpt-5.3-codex";
 
 const STARTUP_AGENTS_DISCOVERY_HEADER: &str = "## Startup AGENTS discovery tree (gitignore-aware)";
 const STARTUP_AGENTS_SUMMARY_PROMPT: &str = r#"You produce concise AGENTS routing hints.
