@@ -1489,11 +1489,6 @@ impl Session {
                 (None, None)
             };
 
-        let zsh_exec_bridge =
-            ZshExecBridge::new(config.zsh_path.clone(), config.codex_home.clone());
-        zsh_exec_bridge
-            .initialize_for_session(&conversation_id.to_string())
-            .await;
         let model_client = ModelClient::new(
             Some(Arc::clone(&auth_manager)),
             conversation_id,
@@ -1526,7 +1521,9 @@ impl Session {
                         );
                 }
                 Err(err) => {
-                    warn!("failed startup AGENTS discovery summary: {err:#}; continuing without AGENTS discovery");
+                    warn!(
+                        "failed startup AGENTS discovery summary: {err:#}; continuing without AGENTS discovery"
+                    );
                 }
             }
         }
@@ -1578,7 +1575,7 @@ impl Session {
             config.js_repl_node_path.clone(),
             config.js_repl_node_module_dirs.clone(),
         ));
-        let mut state = SessionState::new(session_configuration.clone());
+        let state = SessionState::new(session_configuration.clone());
 
         let sess = Arc::new(Session {
             conversation_id,

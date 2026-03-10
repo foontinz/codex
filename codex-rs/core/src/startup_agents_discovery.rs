@@ -381,6 +381,7 @@ async fn summarize_targets(
             None,
             ReasoningSummaryConfig::None,
             None,
+            None,
         )
         .await?;
 
