@@ -26,7 +26,8 @@ async fn startup_agents_summary_prepends_discovery_section() {
     let mut builder = test_codex().with_config(|config| {
         config
             .features
-            .enable(Feature::StartupAgentsDiscoverySummary);
+            .enable(Feature::StartupAgentsDiscoverySummary)
+            .expect("enable startup agents discovery summary");
         std::fs::write(config.cwd.join("AGENTS.md"), "follow project rules")
             .expect("write AGENTS.md");
     });
@@ -83,7 +84,7 @@ async fn startup_agents_summary_prepends_discovery_section() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn startup_agents_summary_invalid_payload_fails_startup() {
+async fn startup_agents_summary_invalid_payload_falls_back_without_section() {
     let server = start_mock_server().await;
     let startup_mock = mount_sse_once(
         &server,
@@ -100,19 +101,29 @@ async fn startup_agents_summary_invalid_payload_fails_startup() {
     let mut builder = test_codex().with_config(|config| {
         config
             .features
-            .enable(Feature::StartupAgentsDiscoverySummary);
+            .enable(Feature::StartupAgentsDiscoverySummary)
+            .expect("enable startup agents discovery summary");
         std::fs::write(config.cwd.join("AGENTS.md"), "follow project rules")
             .expect("write AGENTS.md");
     });
 
-    let err = match builder.build(&server).await {
-        Ok(_) => panic!("invalid startup summary should fail thread startup"),
-        Err(err) => err,
-    };
-    let err_text = format!("{err:#}");
-    assert!(
-        err_text.contains("failed startup AGENTS discovery summary"),
-        "expected startup summary failure in error: {err_text}"
-    );
+    let test = builder.build(&server).await.expect("build test codex");
     assert_eq!(startup_mock.requests().len(), 1);
+
+    let turn_mock = mount_sse_once(
+        &server,
+        sse(vec![ev_response_created("turn"), ev_completed("turn")]),
+    )
+    .await;
+
+    test.submit_turn("hello").await.expect("submit turn");
+
+    let request = turn_mock.single_request();
+    let user_messages = request.message_input_texts("user");
+    assert!(
+        user_messages
+            .iter()
+            .all(|text| !text.contains("## Startup AGENTS discovery tree (gitignore-aware)")),
+        "expected startup discovery section to be omitted after invalid summary: {user_messages:#?}"
+    );
 }

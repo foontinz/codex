@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use anyhow::Result;
-use codex_otel::OtelManager;
+use codex_otel::SessionTelemetry;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::ContentItem;
@@ -121,7 +121,7 @@ pub(crate) async fn build_startup_agents_discovery_section(
     config: &Config,
     model_client: &ModelClient,
     models_manager: &ModelsManager,
-    otel_manager: &OtelManager,
+    session_telemetry: &SessionTelemetry,
 ) -> Result<String> {
     info!(
         cwd = %config.cwd.display(),
@@ -141,7 +141,7 @@ pub(crate) async fn build_startup_agents_discovery_section(
             config,
             model_client,
             models_manager,
-            otel_manager,
+            session_telemetry,
             &discovery.summary_targets,
         )
         .await?
@@ -318,7 +318,7 @@ async fn summarize_targets(
     config: &Config,
     model_client: &ModelClient,
     models_manager: &ModelsManager,
-    otel_manager: &OtelManager,
+    session_telemetry: &SessionTelemetry,
     summary_targets: &[SummaryTarget],
 ) -> Result<BTreeMap<String, AgentsSummary>> {
     let expected_paths: BTreeSet<String> = summary_targets
@@ -377,7 +377,7 @@ async fn summarize_targets(
         .stream(
             &prompt,
             &model_info,
-            otel_manager,
+            session_telemetry,
             None,
             ReasoningSummaryConfig::None,
             None,
